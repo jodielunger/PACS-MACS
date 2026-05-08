@@ -8,6 +8,7 @@ Requirements:
 
 ---
 
+
 ## Overview
 
 Here, we describe the two-state model used to predict how SCR motif combinations influence macrophage phenotype. The model treats each phenotype measurement (surface marker MFI or phagocytosis TFI) as the output of a population of cells distributed between two states — an OFF state and an ON state. The fraction of cells in each state is governed by an equilibrium constant $K$, which depends on the identity and copy number of motifs encoded in the SCR.
@@ -34,11 +35,15 @@ Phenotype measurements for six readouts (CD163, CD80, CD206, CD40, PDL1, phagocy
 
 Cells are in either an OFF state and an ON state. The equilibrium constant $K$ is defined as:
 
-$$K = \frac{[ON]}{[OFF]} = \frac{[ON]}{1 - [ON]}$$
+```math
+K = \frac{[ON]}{[OFF]} = \frac{[ON]}{1 - [ON]}
+```
 
 which can be rearranged to give the fraction of cells in the ON state:
 
-$$[ON] = \frac{K}{1 + K}$$
+```math
+[ON] = \frac{K}{1 + K}
+```
 
 **(Eq. 1)**
 
@@ -46,7 +51,9 @@ $$[ON] = \frac{K}{1 + K}$$
 
 The observed fluorescence of a sample is a weighted average of the fluorescence produced by cells in each state:
 
-$$f_{obs} = f_{low}(1 - [ON]) + f_{high}[ON]$$
+```math
+f_{obs} = f_{low}(1 - [ON]) + f_{high}[ON]
+```
 
 **(Eq. 2)**
 
@@ -56,13 +63,17 @@ where $f_{low}$ and $f_{high}$ are the lowest and highest mean observed fluoresc
 
 The equilibrium constant is related to the energy difference $\Delta E$ between states:
 
-$$K = e^{-\Delta E}$$
+```math
+K = e^{-\Delta E}
+```
 
 **(Eq. 3)**
 
 Substituting Eq. 3 into Eq. 1:
 
-$$[ON] = \frac{1}{1 + e^{\Delta E}}$$
+```math
+[ON] = \frac{1}{1 + e^{\Delta E}}
+```
 
 **(Eq. 4)**
 
@@ -70,7 +81,9 @@ $$[ON] = \frac{1}{1 + e^{\Delta E}}$$
 
 The total $\Delta E$ for a given SCR is the sum of an intrinsic baseline and per-copy contributions from each motif:
 
-$$\Delta E = \Delta E_i + \sum_{j=1}^{9} \Delta E_{s,j} \cdot n_j$$
+```math
+\Delta E = \Delta E_i + \sum_{j=1}^{9} \Delta E_{s,j} \cdot n_j
+```
 
 **(Eq. 5)**
 
@@ -80,7 +93,9 @@ where $\Delta E_i$ is the intrinsic energy when no motifs are present, $\Delta E
 
 Combining Eqs. 2, 4, and 5 gives the single prediction equation used in fitting:
 
-$$f_{pred} = f_{low} + \frac{f_{high} - f_{low}}{1 + \exp\left(\Delta E_i + \sum_{j=1}^{9} \Delta E_{s,j} \cdot n_j\right)}$$
+```math
+f_{pred} = f_{low} + \frac{f_{high} - f_{low}}{1 + \exp\left(\Delta E_i + \sum_{j=1}^{9} \Delta E_{s,j} \cdot n_j\right)}
+```
 
 **(Eq. 6)**
 
@@ -98,7 +113,9 @@ Phenotype-specific bounds $f_{low}$ and $f_{high}$ were computed from the single
 
 For each phenotype, the 10 model parameters ($\Delta E_i$ and $\Delta E_{s,j}$ for $j = 1 \ldots 9$) were estimated by minimizing the sum of squared in fluorescence space over all individual replicate measurements:
 
-$$\mathcal{L} = \sum_{i} \left( f_{obs,i} - f_{pred,i} \right)^2$$
+```math
+\mathcal{L} = \sum_{i} \left( f_{obs,i} - f_{pred,i} \right)^2
+```
 
 **(Eq. 7)**
 
@@ -131,13 +148,17 @@ Two metrics are reported from cross-validation:
 
 Each fitted $\Delta E_{s,j}$ is converted to a per-motif equilibrium constant contribution:
 
-$$K_{s,j} = e^{-\Delta E_{s,j}}$$
+```math
+K_{s,j} = e^{-\Delta E_{s,j}}
+```
 
 **(Eq. 8)**
 
 The intrinsic equilibrium constant (when no motifs are present) is:
 
-$$K_i = e^{-\Delta E_i}$$
+```math
+K_i = e^{-\Delta E_i}
+```
 
 **(Eq. 9)**
 
@@ -151,7 +172,9 @@ $$K_i = e^{-\Delta E_i}$$
 
 $K_s$ values are visualized on a $\log_{10}$ scale. Uncertainty bars reflect ±1 CV-fold SD, propagated from $\Delta E$ space to $\log_{10}(K_s)$ space as:
 
-$$\text{SD}[\log_{10}(K_s)] = \log_{10}(e) \times \text{SD}[\Delta E_s]$$
+```math
+\text{SD}[\log_{10}(K_s)] = \log_{10}(e) \times \text{SD}[\Delta E_s]
+```
 
 **(Eq. 10)**
 
@@ -161,19 +184,25 @@ $$\text{SD}[\log_{10}(K_s)] = \log_{10}(e) \times \text{SD}[\Delta E_s]$$
 
 The total predicted $K$ for any SCR with motif copy numbers $n_1, \ldots, n_9$ is:
 
-$$K_{pred} = K_i \prod_{j=1}^{9} K_{s,j}^{n_j}$$
+```math
+K_{pred} = K_i \prod_{j=1}^{9} K_{s,j}^{n_j}
+```
 
 **(Eq. 11)**
 
 The predicted fraction of cells in the ON state is:
 
-$$[ON]_{pred} = \frac{K_{pred}}{1 + K_{pred}}$$
+```math
+[ON]_{pred} = \frac{K_{pred}}{1 + K_{pred}}
+```
 
 **(Eq. 12)**
 
 And the predicted fluorescence is:
 
-$$f_{pred} = f_{low} + [ON]_{pred} \cdot (f_{high} - f_{low})$$
+```math
+f_{pred} = f_{low} + [ON]_{pred} \cdot (f_{high} - f_{low})
+```
 
 **(Eq. 13)**
 
