@@ -1,6 +1,6 @@
-# SCR-macrophages
+# PACS-macrophages
 
-This repository contains scripts to run two-state modeling associated with the SCR Macrophage project. 
+This repository contains scripts to run two-state modeling associated with the PACS Macrophage project. 
 
 Requirements: 
 1. `phago_suma_combined.Rds`: This is the only dataset required to run the two-state model and must be downloaded from [Zenodo](10.5281/zenodo.19699424). During peer review, this dataset will be restricted for reviewer access only.
@@ -13,7 +13,7 @@ Requirements:
 
 ## Overview
 
-Here, we describe the two-state model used to predict how SCR motif combinations influence macrophage phenotype. The model treats each phenotype measurement (surface marker MFI or phagocytosis TFI) as the output of a population of cells distributed between two states — an OFF state and an ON state. The fraction of cells in each state is governed by an equilibrium constant $K$, which depends on the identity and copy number of motifs encoded in the SCR.
+Here, we describe the two-state model used to predict how PACS motif combinations influence macrophage phenotype. The model treats each phenotype measurement (surface marker MFI or phagocytosis TFI) as the output of a population of cells distributed between two states — an OFF state and an ON state. The fraction of cells in each state is governed by an equilibrium constant $K$, which depends on the identity and copy number of motifs encoded in the PACS.
 
 Phenotype measurements for six readouts (CD163, CD80, CD206, CD40, PDL1, phagocytosis) were each modeled independently. The same mathematical framework and fitting procedure was applied to every phenotype.
 
@@ -77,14 +77,14 @@ Substituting Eq. 3 into Eq. 1:
 
 ### Additive Motif Model for $\Delta E$
 
-The total $\Delta E$ for a given SCR is the sum of an intrinsic baseline and per-copy contributions from each motif:
+The total $\Delta E$ for a given PACS is the sum of an intrinsic baseline and per-copy contributions from each motif:
 
 > ```math
 > \Delta E = \Delta E\text{i} + \sum_{j=1}^{9} \Delta E\text{s}_{j} \cdot n_j
 > ```
 > <div align="right"><em>(Eq. 5)</em></div>
 
-where $\Delta E\text{i}$ is the intrinsic energy when no motifs are present, $\Delta E\text{s}_{j}$ is the per-copy contribution of motif $j$, and $n_j$ is the copy number of motif $j$ in the SCR.
+where $\Delta E\text{i}$ is the intrinsic energy when no motifs are present, $\Delta E\text{s}_{j}$ is the per-copy contribution of motif $j$, and $n_j$ is the copy number of motif $j$ in the PACS.
 
 ### Full Prediction Equation
 
@@ -118,7 +118,7 @@ where $f_{pred,i}$ is evaluated using Eq. 6 with the motif copy numbers $n_{j,i}
 
 ### Optimization Algorithm
 
-Minimization of Eq. 7 was performed using the BFGS quasi-Newton algorithm (`optim()` in base R, `method = "BFGS"`, `maxit = 5000`). Parameters were initialized with $\Delta E\text{i}$ set to the mean observed $\Delta E$ of no-motif (SCR0) replicates (computed by applying Eq. 4 to the no-motif data), and all $\Delta E\text{s}_{j}$ initialized at zero.
+Minimization of Eq. 7 was performed using the BFGS quasi-Newton algorithm (`optim()` in base R, `method = "BFGS"`, `maxit = 5000`). Parameters were initialized with $\Delta E\text{i}$ set to the mean observed $\Delta E$ of no-motif (PACS0) replicates (computed by applying Eq. 4 to the no-motif data), and all $\Delta E\text{s}_{j}$ initialized at zero.
 
 ---
 
@@ -174,7 +174,7 @@ $K_s$ values are visualized on a $\log_{10}$ scale. Uncertainty bars reflect ±1
 
 ## Predicting Phenotypes for Novel Combinations
 
-The total predicted $K$ for any SCR with motif copy numbers $n_1, \ldots, n_9$ is:
+The total predicted $K$ for any PACS with motif copy numbers $n_1, \ldots, n_9$ is:
 
 > ```math
 > K_{pred} = K_i \prod_{j=1}^{9} K_{s,j}^{n_j}
@@ -195,7 +195,7 @@ And the predicted fluorescence is:
 > ```
 > <div align="right"><em>(Eq. 13)</em></div>
 
-Eqs. 11–13 were applied to all 715 possible SCR designs with a total of 0–4 motif copies ($n_j \geq 0$, $\sum_j n_j \leq 4$) to generate the predicted design space shown in Figure 6.
+Eqs. 11–13 were applied to all 715 possible PACS designs with a total of 0–4 motif copies ($n_j \geq 0$, $\sum_j n_j \leq 4$) to generate the predicted design space shown in Figure 6.
 
 Note that Eq. 11 is equivalent to Eq. 6 — the product-of-$K_s$ form is simply an algebraically equivalent rearrangement that makes the multiplicative contribution of each motif explicit.
 
