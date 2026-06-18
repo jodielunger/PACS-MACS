@@ -34,6 +34,7 @@ library(forcats)
 library(tibble)
 library(rsample)
 library(ggh4x)
+library(gt)
 ```
 
 # Step 2 - Load Data
@@ -761,12 +762,29 @@ ggsave(
 # Export fitted values 
 
 ```{r}
-library(dplyr)
-library(tidyr)
-library(stringr)
-library(gt)
-
 term_order_export <- c("(Intercept)", paste0("S", 1:9))
+
+# ------------------------------------------------------------------
+# Display-name maps for gt row labels (markdown)
+# ------------------------------------------------------------------
+
+K_display_map <- c(
+  Ki    = "log<sub>10</sub>(*K*<sub>i</sub>)",
+  Ks_S1 = "log<sub>10</sub>(*K*<sub>S1</sub>)", Ks_S2 = "log<sub>10</sub>(*K*<sub>S2</sub>)",
+  Ks_S3 = "log<sub>10</sub>(*K*<sub>S3</sub>)", Ks_S4 = "log<sub>10</sub>(*K*<sub>S4</sub>)",
+  Ks_S5 = "log<sub>10</sub>(*K*<sub>S5</sub>)", Ks_S6 = "log<sub>10</sub>(*K*<sub>S6</sub>)",
+  Ks_S7 = "log<sub>10</sub>(*K*<sub>S7</sub>)", Ks_S8 = "log<sub>10</sub>(*K*<sub>S8</sub>)",
+  Ks_S9 = "log<sub>10</sub>(*K*<sub>S9</sub>)"
+)
+
+dE_display_map <- c(
+  ΔEi    = "Δ*E*<sub>i</sub>",
+  ΔEs_S1 = "Δ*E*<sub>S1</sub>", ΔEs_S2 = "Δ*E*<sub>S2</sub>",
+  ΔEs_S3 = "Δ*E*<sub>S3</sub>", ΔEs_S4 = "Δ*E*<sub>S4</sub>",
+  ΔEs_S5 = "Δ*E*<sub>S5</sub>", ΔEs_S6 = "Δ*E*<sub>S6</sub>",
+  ΔEs_S7 = "Δ*E*<sub>S7</sub>", ΔEs_S8 = "Δ*E*<sub>S8</sub>",
+  ΔEs_S9 = "Δ*E*<sub>S9</sub>"
+)
 
 # ------------------------------------------------------------------
 # Clean data and create labels
@@ -774,119 +792,72 @@ term_order_export <- c("(Intercept)", paste0("S", 1:9))
 
 coef_export_long <- results_coef %>%
   mutate(
-    # Remove first underscore and everything after it
-    phenotype = str_remove(phenotype, "_.*$"),
-
-    # Rename phenotypes
-    phenotype = recode(
-      phenotype,
-      phagocytosis = "*E. coli* phagocytosis"
-    ),
-
-    K_value = exp(-estimate),
-
-    term_label = ifelse(
-      term == "(Intercept)",
-      "Ki",
-      paste0("Ks_", term)
-    ),
-
-    dE_label = ifelse(
-      term == "(Intercept)",
-      "ΔEi",
-      paste0("ΔEs_", term)
-    )
+    phenotype       = str_remove(phenotype, "_.*$"),
+    phenotype_label = recode(phenotype, phagocytosis = "*E. coli* phagocytosis"),
+    log10K_value    = -estimate * log10e,
+    log10K_sd       = std.dev * log10e,
+    term_label      = ifelse(term == "(Intercept)", "Ki",  paste0("Ks_", term)),
+    dE_label        = ifelse(term == "(Intercept)", "ΔEi", paste0("ΔEs_", term))
   ) %>%
   arrange(phenotype, match(term, term_order_export))
 
+# Phenotype column order (mirrors phenotype_mean_cols)
+pheno_order <- str_remove(phenotype_mean_cols, "_.*$")
+
+# Lookup: clean phenotype name -> markdown display label (for gt column headers)
+pheno_label_map <- coef_export_long %>%
+  distinct(phenotype, phenotype_label) %>%
+  arrange(match(phenotype, pheno_order)) %>%
+  { setNames(.$phenotype_label, .$phenotype) }
+
 # ------------------------------------------------------------------
-# K table
+# Wide tables: terms as rows, phenotypes as columns, "value ± SD" cells
 # ------------------------------------------------------------------
 
 K_export_tbl <- coef_export_long %>%
-  select(phenotype, term_label, K_value) %>%
-  mutate(K_value = round(K_value, 2)) %>%
-  pivot_wider(
-    names_from = term_label,
-    values_from = K_value
-  ) %>%
-  select(
-    phenotype,
-    Ki,
-    Ks_S1, Ks_S2, Ks_S3,
-    Ks_S4, Ks_S5, Ks_S6,
-    Ks_S7, Ks_S8, Ks_S9
-  )
-
-# ------------------------------------------------------------------
-# ΔE table
-# ------------------------------------------------------------------
+  mutate(K_cell = paste0(round(log10K_value, 2), " ± ", round(log10K_sd, 2))) %>%
+  select(Term = term_label, phenotype, K_cell) %>%
+  pivot_wider(names_from = phenotype, values_from = K_cell) %>%
+  arrange(match(Term, names(K_display_map))) %>%
+  select(Term, all_of(pheno_order))
 
 dE_export_tbl <- coef_export_long %>%
-  select(phenotype, dE_label, estimate) %>%
-  mutate(estimate = round(estimate, 2)) %>%
-  pivot_wider(
-    names_from = dE_label,
-    values_from = estimate
-  ) %>%
-  select(
-    phenotype,
-    ΔEi,
-    ΔEs_S1, ΔEs_S2, ΔEs_S3,
-    ΔEs_S4, ΔEs_S5, ΔEs_S6,
-    ΔEs_S7, ΔEs_S8, ΔEs_S9
-  )
+  mutate(dE_cell = paste0(round(estimate, 2), " ± ", round(std.dev, 2))) %>%
+  select(Term = dE_label, phenotype, dE_cell) %>%
+  pivot_wider(names_from = phenotype, values_from = dE_cell) %>%
+  arrange(match(Term, names(dE_display_map))) %>%
+  select(Term, all_of(pheno_order))
 
 # ------------------------------------------------------------------
 # Pretty gt tables
 # ------------------------------------------------------------------
 
 K_gt <- K_export_tbl %>%
+  mutate(Term = recode(Term, !!!K_display_map)) %>%
   gt() %>%
-  fmt_markdown(columns = phenotype) %>%
-  cols_label(
-    phenotype = "Phenotype",
-    Ki = md("*K*<sub>i</sub>"),
-    Ks_S1 = md("*K*<sub>S1</sub>"),
-    Ks_S2 = md("*K*<sub>S2</sub>"),
-    Ks_S3 = md("*K*<sub>S3</sub>"),
-    Ks_S4 = md("*K*<sub>S4</sub>"),
-    Ks_S5 = md("*K*<sub>S5</sub>"),
-    Ks_S6 = md("*K*<sub>S6</sub>"),
-    Ks_S7 = md("*K*<sub>S7</sub>"),
-    Ks_S8 = md("*K*<sub>S8</sub>"),
-    Ks_S9 = md("*K*<sub>S9</sub>")
-  ) %>%
+  fmt_markdown(columns = Term) %>%
+  cols_label(.list = c(list(Term = "Term"), lapply(pheno_label_map, md))) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_column_labels(everything())
   ) %>%
   tab_header(
-    title = md("**K values by phenotype**")
+    title    = md("**log<sub>10</sub>(K) values by phenotype**"),
+    subtitle = md("Values shown as estimate ± CV-fold SD")
   )
 
 dE_gt <- dE_export_tbl %>%
+  mutate(Term = recode(Term, !!!dE_display_map)) %>%
   gt() %>%
-  fmt_markdown(columns = phenotype) %>%
-  cols_label(
-    phenotype = "Phenotype",
-    ΔEi = md("Δ*E*<sub>i</sub>"),
-    ΔEs_S1 = md("Δ*E*<sub>S1</sub>"),
-    ΔEs_S2 = md("Δ*E*<sub>S2</sub>"),
-    ΔEs_S3 = md("Δ*E*<sub>S3</sub>"),
-    ΔEs_S4 = md("Δ*E*<sub>S4</sub>"),
-    ΔEs_S5 = md("Δ*E*<sub>S5</sub>"),
-    ΔEs_S6 = md("Δ*E*<sub>S6</sub>"),
-    ΔEs_S7 = md("Δ*E*<sub>S7</sub>"),
-    ΔEs_S8 = md("Δ*E*<sub>S8</sub>"),
-    ΔEs_S9 = md("Δ*E*<sub>S9</sub>")
-  ) %>%
+  fmt_markdown(columns = Term) %>%
+  cols_label(.list = c(list(Term = "Term"), lapply(pheno_label_map, md))) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_column_labels(everything())
   ) %>%
   tab_header(
-    title = md("**ΔE values by phenotype**")
+    title    = md("**ΔE values by phenotype**"),
+    subtitle = md("Values shown as estimate ± CV-fold SD of fitted ΔE coefficient")
   )
 
 # ------------------------------------------------------------------
@@ -895,7 +866,7 @@ dE_gt <- dE_export_tbl %>%
 
 write.csv(
   K_export_tbl,
-  file = file.path(plot_folder, "K_values_table.csv"),
+  file = file.path(plot_folder, "log10K_values_table.csv"),
   row.names = FALSE
 )
 
@@ -911,7 +882,7 @@ write.csv(
 
 gtsave(
   data = K_gt,
-  filename = file.path(plot_folder, "K_values_table.png"),
+  filename = file.path(plot_folder, "log10K_values_table.png"),
   vwidth = 2400,
   vheight = 1200,
   zoom = 2
@@ -925,6 +896,7 @@ gtsave(
   zoom = 2
 )
 ```
+
 
 
 # Predictions for all 0-4 motif PACS 
