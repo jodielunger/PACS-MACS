@@ -5,7 +5,7 @@ date: "2026-04-26"
 ---
 
 
-This R markdown file contains code to run two-state modeling on the combinatorial SCR library tested in the first SCR Macrophage manuscript. 
+This R markdown file contains code to run two-state modeling on the combinatorial PACS library tested in the first PACS Macrophage manuscript. 
 I recommend running this as code chunks in Rstudio. 
 
 
@@ -46,7 +46,7 @@ phenotype_data <- readRDS(file.path(data_folder, "phago_suma_combined.Rds"))
 head(phenotype_data)
 ```
 
-Filter data to only include samples which were transduced with an SCR
+Filter data to only include samples which were transduced with a PACS
 ```{r}
 synth_df <- subset(phenotype_data, transduction_status == "T")
 ```
@@ -62,7 +62,7 @@ motif_cols <- c("motif_ID_1", "motif_ID_2", "motif_ID_3")
 bench_samples <- c("GM-CSF","IFNγ","IFNγ + LPS","IL-10","IL-4","UT","empty")
 ```
 
-# Step 4 - Count how many of each motif is in each SCR
+# Step 4 - Count how many of each motif is in each PACS
 ```{r}
 # Add a unique row_id to preserve sample identity across reshaping
 # operations (pivot_longer / pivot_wider).
@@ -99,7 +99,7 @@ motifs_wide <- motifs_long %>%
     values_fill = 0              # motifs not present get a count of 0
   )
 
-# This is an important line that ensures motifs all get labeled as having zero copies in SCR0
+# This is an important line that ensures motifs all get labeled as having zero copies in PACS0
 motif_count_cols <- setdiff(names(motifs_wide), "row_id") # list the motif columns so that NAs are replaced as 0 ONLY in these columns!!
 
 # ---- Join motif counts back to the original dataframe ----
@@ -323,7 +323,7 @@ where $\Delta E$ follows the same additive motif model as for the surface marker
 $$
 \Delta E = \Delta E_i + \Delta E_{s,S1} \cdot n_{S1} + \Delta E_{s,S2} \cdot n_{S2} + ... + \Delta E_{s,S9} \cdot n_{S9}
 $$
-where $\Delta E_{i}$ is the intrinsic $\Delta E$ value when there are no motifs present in the SCR, and $\Delta E_{s,Sx}$ is the per-motif (single-motif) $\Delta E$ contribution of motif $S_x$. The total $\Delta E$ is the sum of the intrinsic value and all per-motif contributions.
+where $\Delta E_{i}$ is the intrinsic $\Delta E$ value when there are no motifs present in the PACS, and $\Delta E_{s,Sx}$ is the per-motif (single-motif) $\Delta E$ contribution of motif $S_x$. The total $\Delta E$ is the sum of the intrinsic value and all per-motif contributions.
 
 
 
@@ -761,54 +761,173 @@ ggsave(
 # Export fitted values 
 
 ```{r}
-coef_export_tbl <- results_coef %>%
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(gt)
+
+term_order_export <- c("(Intercept)", paste0("S", 1:9))
+
+# ------------------------------------------------------------------
+# Clean data and create labels
+# ------------------------------------------------------------------
+
+coef_export_long <- results_coef %>%
   mutate(
-    K_value    = exp(-estimate),
-    term_label = ifelse(term == "(Intercept)", "Ki", paste0("Ks_", term)),
-    dE_label   = ifelse(term == "(Intercept)", "dEi", paste0("dEs_", term)),
-    phenotype  = str_remove(phenotype, "_mean$")
+    # Remove first underscore and everything after it
+    phenotype = str_remove(phenotype, "_.*$"),
+
+    # Rename phenotypes
+    phenotype = recode(
+      phenotype,
+      phagocytosis = "*E. coli* phagocytosis"
+    ),
+
+    K_value = exp(-estimate),
+
+    term_label = ifelse(
+      term == "(Intercept)",
+      "Ki",
+      paste0("Ks_", term)
+    ),
+
+    dE_label = ifelse(
+      term == "(Intercept)",
+      "ΔEi",
+      paste0("ΔEs_", term)
+    )
   ) %>%
-  select(phenotype, term_label, dE_label, K_value, estimate) %>%
+  arrange(phenotype, match(term, term_order_export))
+
+# ------------------------------------------------------------------
+# K table
+# ------------------------------------------------------------------
+
+K_export_tbl <- coef_export_long %>%
+  select(phenotype, term_label, K_value) %>%
+  mutate(K_value = round(K_value, 2)) %>%
   pivot_wider(
-    id_cols     = phenotype,
-    names_from  = c(term_label, dE_label),
-    values_from = c(K_value, estimate),
-    names_glue  = "{term_label}_or_{dE_label}_{.value}"
+    names_from = term_label,
+    values_from = K_value
+  ) %>%
+  select(
+    phenotype,
+    Ki,
+    Ks_S1, Ks_S2, Ks_S3,
+    Ks_S4, Ks_S5, Ks_S6,
+    Ks_S7, Ks_S8, Ks_S9
   )
 
-# Build tidy wide table: one row per phenotype, columns for K and ΔE values side by side
-term_order_export <- c("(Intercept)", paste0("S", 1:9))
-coef_export_tbl <- results_coef %>%
-  mutate(phenotype = str_remove(phenotype, "_mean$")) %>%
-  arrange(phenotype, match(term, term_order_export)) %>%
-  mutate(
-    K_value    = exp(-estimate),
-    term_label = ifelse(term == "(Intercept)", "Ki",    paste0("Ks_", term)),
-    dE_label   = ifelse(term == "(Intercept)", "dEi",   paste0("dEs_", term))
-  ) %>%
-  select(phenotype, term_label, dE_label, K_value, estimate) %>%
-  pivot_longer(
-    cols      = c(K_value, estimate),
-    names_to  = "value_type",
-    values_to = "value"
-  ) %>%
-  mutate(col_name = ifelse(value_type == "K_value", term_label, dE_label)) %>%
-  select(phenotype, col_name, value) %>%
-  pivot_wider(names_from = col_name, values_from = value) %>%
-  select(phenotype,
-         Ki,   dEi,
-         Ks_S1, dEs_S1, Ks_S2, dEs_S2, Ks_S3, dEs_S3,
-         Ks_S4, dEs_S4, Ks_S5, dEs_S5, Ks_S6, dEs_S6,
-         Ks_S7, dEs_S7, Ks_S8, dEs_S8, Ks_S9, dEs_S9)
+# ------------------------------------------------------------------
+# ΔE table
+# ------------------------------------------------------------------
 
-knitr::kable(coef_export_tbl, digits = 4,
-             caption = "Fitted K and ΔE values per phenotype (Ki/dEi = intrinsic; Ks/dEs = per-motif)")
+dE_export_tbl <- coef_export_long %>%
+  select(phenotype, dE_label, estimate) %>%
+  mutate(estimate = round(estimate, 2)) %>%
+  pivot_wider(
+    names_from = dE_label,
+    values_from = estimate
+  ) %>%
+  select(
+    phenotype,
+    ΔEi,
+    ΔEs_S1, ΔEs_S2, ΔEs_S3,
+    ΔEs_S4, ΔEs_S5, ΔEs_S6,
+    ΔEs_S7, ΔEs_S8, ΔEs_S9
+  )
 
-write.csv(coef_export_tbl, file = file.path(plot_folder, "Ki_Ks_dEi_dEs_table.csv"), row.names = FALSE)
+# ------------------------------------------------------------------
+# Pretty gt tables
+# ------------------------------------------------------------------
+
+K_gt <- K_export_tbl %>%
+  gt() %>%
+  fmt_markdown(columns = phenotype) %>%
+  cols_label(
+    phenotype = "Phenotype",
+    Ki = md("*K*<sub>i</sub>"),
+    Ks_S1 = md("*K*<sub>S1</sub>"),
+    Ks_S2 = md("*K*<sub>S2</sub>"),
+    Ks_S3 = md("*K*<sub>S3</sub>"),
+    Ks_S4 = md("*K*<sub>S4</sub>"),
+    Ks_S5 = md("*K*<sub>S5</sub>"),
+    Ks_S6 = md("*K*<sub>S6</sub>"),
+    Ks_S7 = md("*K*<sub>S7</sub>"),
+    Ks_S8 = md("*K*<sub>S8</sub>"),
+    Ks_S9 = md("*K*<sub>S9</sub>")
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  tab_header(
+    title = md("**K values by phenotype**")
+  )
+
+dE_gt <- dE_export_tbl %>%
+  gt() %>%
+  fmt_markdown(columns = phenotype) %>%
+  cols_label(
+    phenotype = "Phenotype",
+    ΔEi = md("Δ*E*<sub>i</sub>"),
+    ΔEs_S1 = md("Δ*E*<sub>S1</sub>"),
+    ΔEs_S2 = md("Δ*E*<sub>S2</sub>"),
+    ΔEs_S3 = md("Δ*E*<sub>S3</sub>"),
+    ΔEs_S4 = md("Δ*E*<sub>S4</sub>"),
+    ΔEs_S5 = md("Δ*E*<sub>S5</sub>"),
+    ΔEs_S6 = md("Δ*E*<sub>S6</sub>"),
+    ΔEs_S7 = md("Δ*E*<sub>S7</sub>"),
+    ΔEs_S8 = md("Δ*E*<sub>S8</sub>"),
+    ΔEs_S9 = md("Δ*E*<sub>S9</sub>")
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  tab_header(
+    title = md("**ΔE values by phenotype**")
+  )
+
+# ------------------------------------------------------------------
+# Export CSVs
+# ------------------------------------------------------------------
+
+write.csv(
+  K_export_tbl,
+  file = file.path(plot_folder, "K_values_table.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  dE_export_tbl,
+  file = file.path(plot_folder, "DeltaE_values_table.csv"),
+  row.names = FALSE
+)
+
+# ------------------------------------------------------------------
+# Export PNGs (~300 dpi)
+# ------------------------------------------------------------------
+
+gtsave(
+  data = K_gt,
+  filename = file.path(plot_folder, "K_values_table.png"),
+  vwidth = 2400,
+  vheight = 1200,
+  zoom = 2
+)
+
+gtsave(
+  data = dE_gt,
+  filename = file.path(plot_folder, "DeltaE_values_table.png"),
+  vwidth = 2400,
+  vheight = 1200,
+  zoom = 2
+)
 ```
 
 
-# Predictions for all 0-4 motif SCRs 
+# Predictions for all 0-4 motif PACS 
 
 
 Generate predictions and compute inflammatory score.
@@ -943,6 +1062,5 @@ ggsave(
   device   = "svg"
 )
 ```
-
 
 
