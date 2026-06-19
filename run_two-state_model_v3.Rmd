@@ -27,6 +27,7 @@ plot_folder <- "/Users/jodielunger/OneDrive - Stanford/Code/combo_lib_modeling/"
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(ggrepel)
 library(tidyr)
 library(purrr)
 library(stringr)
@@ -35,6 +36,7 @@ library(tibble)
 library(rsample)
 library(ggh4x)
 library(gt)
+library(svglite)
 ```
 
 # Step 2 - Load Data
