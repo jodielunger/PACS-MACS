@@ -4,7 +4,7 @@ This repository contains scripts to run two-state modeling associated with the P
 
 Requirements: 
 1. `phago_suma_combined.Rds`: This is the only dataset required to run the two-state model and must be downloaded from [Zenodo](10.5281/zenodo.19699424). During peer review, this dataset will be restricted for reviewer access only.
-2. `run_two-state_model_v3.Rmd`: This is the only script required to run the two-state model. This script is best run in Rstudio or another UI optimized for running R markdown files.
+2. `run_two-state_model_v3.Rmd`: This is the only script required to run the two-state model. This script is best run in Rstudio or another UI optimized for running R markdown files. Note that you may need to install pacakges before loading them to your library. 
 
 ---
 
